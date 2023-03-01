@@ -105,7 +105,7 @@ def init_model(model_name, lr, n_epochs=25, batch_size=64, n_chan=30,
             ("valid_balanced_accuracy", skorch.callbacks.EpochScoring(scoring='balanced_accuracy', on_train=False, name="valid_balanced_accuracy", lower_is_better=False)),
             ("lr_scheduler", LRScheduler('CosineAnnealingLR', T_max=n_epochs - 1)),
         ],
-        device=device,
+        device=device,verbose=0 ,
     )
     clf.initialize()
     # number of trainable parameters
@@ -140,7 +140,7 @@ def run_exp(data, labels, task, preprocessing, model_folder, model_name,
     for train_idx, test_idx in cv_split:
         i += 1
         #valid_ds = TensorDataset(torch.from_numpy(data[test_idx]), torch.from_numpy(labels[test_idx]))
-        clf, model = init_model(model_name, lr, n_epochs=25, batch_size=64, n_chan=30, 
+        clf, model = init_model(model_name, lr, n_epochs=25, batch_size=batch_size, n_chan=30, 
                n_classes=2, weight_decay=0, seed=42, input_window_samples=251, 
                valid_ds=torch.utils.data.Subset(dataset, test_idx), 
                class_weights=class_weights, gpu=True)
@@ -171,16 +171,19 @@ def run_exp_per_subject(df, task, preprocessing, model_folder, model_name,
     Trains classifier on all but one subject and saves parameters and history.
     """
     # path to save to
-    model_path = os.getcwd()+"\\"+model_folder+"\\"+model_name+"\\"+task+"\\"+preprocessing+"\\"
+    model_path = os.path.join(os.getcwd(),model_folder,model_name,task,preprocessing)
     Path(model_path).mkdir(parents=True, exist_ok=True)
+    
         
     # train and validate on each subject, then save parameters and history
     for i in range(n_subjects):
+        print(f"subject {i}")
+
         list_train = list(range(n_subjects))
         list_train.remove(i)
         data, labels = DataLoader.create_data_labels(df, list_train)
         # calculate class weights
-        class_weights=class_weight.compute_class_weight('balanced',np.unique(labels),labels)
+        class_weights=class_weight.compute_class_weight(class_weight='balanced',classes=np.unique(labels),y=labels)
         class_weights=torch.tensor(class_weights,dtype=torch.float)
         class_weights = class_weights.to('cuda')
         # push data and labels to gpu
@@ -196,9 +199,9 @@ def run_exp_per_subject(df, task, preprocessing, model_folder, model_name,
                                valid_ds=valid_dataset, 
                                class_weights=class_weights, gpu=True)
         clf.fit(dataset, y=None, epochs=n_epochs)
-        clf.save_params(f_params=model_path+"split_"+str(i)+"_model.pkl",
-                       f_optimizer=model_path+"split_"+str(i)+"_optimizer.pkl",
-                       f_history=model_path+"split_"+str(i)+"_history.json")
+        clf.save_params(f_params=os.path.join(model_path,"split_"+str(i)+"_model.pkl"),
+                       f_optimizer=os.path.join(model_path,"split_"+str(i)+"_optimizer.pkl"),
+                       f_history=os.path.join(model_path,"split_"+str(i)+"_history.json"))
  
 def run_exp_single_subject(df, task, preprocessing, model_folder, model_name, 
             lr, n_epochs, n_splits, batch_size=64, n_subjects=40):
@@ -206,14 +209,18 @@ def run_exp_single_subject(df, task, preprocessing, model_folder, model_name,
     Trains classifier on single subject and saves parameters and history.
     """
     # path to save parameters to
-    model_path = os.getcwd()+"\\"+model_folder+"\\"+model_name+"\\"+task+"\\"+preprocessing+"\\"
+    model_path = os.path.join(os.getcwd(),model_folder,model_name,task,preprocessing)
     Path(model_path).mkdir(parents=True, exist_ok=True)
         
     # train and validate on each subject, then save parameters and history
     for subjectID in range(n_subjects):
+        print(f"subject {subjectID} task {task}")
+    
+        
+        
         data, labels = DataLoader.create_data_labels(df, [subjectID])
         # calculate class weights
-        class_weights=class_weight.compute_class_weight('balanced',np.unique(labels),labels)
+        class_weights=class_weight.compute_class_weight(class_weight='balanced',classes=np.unique(labels),y=labels)
         class_weights=torch.tensor(class_weights,dtype=torch.float)
         class_weights = class_weights.to('cuda')
         # push data and labels to gpu
@@ -225,17 +232,20 @@ def run_exp_single_subject(df, task, preprocessing, model_folder, model_name,
         # create stratified splits
         cv = sklearn.model_selection.StratifiedShuffleSplit(n_splits, test_size=0.2, random_state=42)
         cv_split = cv.split(data,labels)
-
         # train and validate on each split, then save parameters and history
         i = 0
         for train_idx, test_idx in cv_split:
             i += 1
+            print(f"subject {subjectID} split {i}")
             #valid_ds = TensorDataset(torch.from_numpy(data[test_idx]), torch.from_numpy(labels[test_idx]))
             clf, model = init_model(model_name, lr, n_epochs=25, batch_size=batch_size, n_chan=30, 
                                n_classes=2, weight_decay=0, seed=42, input_window_samples=251, 
                                valid_ds=torch.utils.data.Subset(dataset, test_idx), 
                                class_weights=class_weights, gpu=True)
+            print("fitting")
             clf.fit(torch.utils.data.Subset(dataset, train_idx), y=None, epochs=n_epochs)
-            clf.save_params(f_params=model_path+"subject_"+str(subjectID)+"_split_"+str(i)+"_model.pkl",
-                           f_optimizer=model_path+"subject_"+str(subjectID)+"_split_"+str(i)+"_optimizer.pkl",
-                           f_history=model_path+"subject_"+str(subjectID)+"_split_"+str(i)+"_history.json")
+            print("saving")
+            clf.save_params(f_params=os.path.join(model_path,"subject_"+str(subjectID)+"_split_"+str(i)+"_model.pkl"),
+                           f_optimizer=os.path.join(model_path,"subject_"+str(subjectID)+"_split_"+str(i)+"_optimizer.pkl"),
+                           f_history=os.path.join(model_path,"subject_"+str(subjectID)+"_split_"+str(i)+"_history.json"))
+            print("saved")

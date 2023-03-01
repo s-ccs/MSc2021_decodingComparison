@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd 
 import numpy as np
 from mne_bids import (BIDSPath, read_raw_bids)
-from autoreject import AutoReject
+#from autoreject import AutoReject
 
 
 def load_raw(data_path, task, preprocessing, subject_id):

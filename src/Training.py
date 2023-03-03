@@ -145,7 +145,7 @@ def run_exp(data, labels, task, preprocessing, model_folder, model_name,
                valid_ds=torch.utils.data.Subset(dataset, test_idx), 
                class_weights=class_weights, gpu=True)
         #clf, model = init_model(model_name, lr, n_epochs, batch_size, 
-        #                        valid_ds=torch.utils.data.Subset(dataset, test_idx), 
+        #                           valid_ds=torch.utils.data.Subset(dataset, test_idx), 
         #                        class_weights=class_weights)  
         clf.fit(torch.utils.data.Subset(dataset, train_idx), y=None, epochs=n_epochs)
         clf.save_params(f_params=model_path+"split_"+str(i)+additional_save_param+"_model.pkl",
